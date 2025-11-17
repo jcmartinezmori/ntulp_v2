@@ -22,7 +22,7 @@ def plot_frames(n, objective, timeLimit, epsLimit, iterCountStart, iterCountEnd)
         shutil.rmtree(html_dir)
     os.makedirs(html_dir)
 
-    g, _, lines_df, _ = helper.preprocess_load()
+    g, _, lines_df, trips_df = helper.preprocess_load()
     samples_df = pd.read_csv('{0}/results/instances/samples_df_{1}_{2}.csv'.format(RELPATH, FILENAME, n))
 
     for iterCount in range(iterCountStart, iterCountEnd + 1):
@@ -32,14 +32,15 @@ def plot_frames(n, objective, timeLimit, epsLimit, iterCountStart, iterCountEnd)
         ) as file:
             x_N, _, _, _, _, S, _ = pickle.load(file)
 
-        lines_df['width'] = [LINESCALING * x_N[j] / lines_df.iloc[j].length for j in range(len(x_N))]
+        # lines_df['width'] = [LINESCALING * x_N[j] / lines_df.iloc[j].length for j in range(len(x_N))]
+        lines_df['width'] = [LINESCALING * np.log2(1 + x_N[j] / lines_df.iloc[j].length) for j in range(len(x_N))]
         for _, data in g.nodes(data=True):
             data['sample_ct'] = 0
         if S is not None:
             for i, sample in samples_df.iterrows():
-                if i in S:
-                    g.nodes[sample.o_node]['sample_ct'] += 1
-                    g.nodes[sample.d_node]['sample_ct'] += 1
+                if sample.community_area in S:
+                    g.nodes[sample.node]['sample_ct'] += sample['count']
+                    # g.nodes[trip.d_node]['sample_ct'] += 1
 
         folium_map = folium.Map(location=CENTER, zoom_start=11, tiles=None)
         folium.TileLayer('OpenStreetMap', opacity=1/6).add_to(folium_map)
@@ -51,7 +52,7 @@ def plot_frames(n, objective, timeLimit, epsLimit, iterCountStart, iterCountEnd)
         for u, data in g.nodes(data=True):
             if data['sample_ct']:
                 folium.CircleMarker(
-                    location=(data['y'], data['x']), color=HEXBLACK, radius=np.log(1 + data['sample_ct']), weight=0,
+                    location=(data['y'], data['x']), color=HEXBLACK, radius=np.log2(1 + data['sample_ct']), weight=0,
                     fill=True, fill_opacity=1, tooltip=u
                 ).add_to(folium_map)
         folium_map.save('{0}/pos1_{1}_{2}_{3}.html'.format(html_dir, FILENAME, modelname, iterCount))
@@ -106,12 +107,12 @@ async def convert_html_to_images(html_dir, pdf_dir, pdf_crop_dir, png_crop_dir, 
 
 
 if __name__ == '__main__':
-    n = 1430
+    n = 'community_area'
     objective = 'maximin'
     timeLimit = 300
     epsLimit = 1
     iterCountStart = -1
-    iterCountEnd = 101
+    iterCountEnd = 100
     html_dir = './results/frames/html'
     pdf_dir = './results/frames/pdf'
     pdf_crop_dir = './results/frames/pdf_crop'

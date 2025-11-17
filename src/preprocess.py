@@ -71,7 +71,11 @@ def main():
         'Pickup Centroid Longitude',
         'Pickup Centroid Latitude',
         'Dropoff Centroid Longitude',
-        'Dropoff Centroid Latitude'
+        'Dropoff Centroid Latitude',
+        'Pickup Census Tract',
+        'Pickup Community Area',
+        'Dropoff Census Tract',
+        'Dropoff Community Area',
     ]
     trips_df = trips_df[trips_columns]
     trips_df.rename(

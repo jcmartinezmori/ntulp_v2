@@ -175,23 +175,23 @@ def plot_utilities(title, keys):
 
 if __name__ == '__main__':
 
-    ns = [1430]
-    objectives = ['maximin', 'utilitarian']
-    timeLimit = 300
+    ns = ['community-area']
+    objectives = ['utilitarian', 'maximin']
+    timeLimit = 90
     epsLimit = 1
-    iterLimit = 101
+    iterLimit = 100
     plot_convergence(ns, objectives, timeLimit, epsLimit, iterLimit)
 
     title = r'$\Large \textrm{Maximin Service Goal}$'
     keys = [
-        (1430, 'maximin', 300, 1, 101, r'$\textrm{With cooperation}$'),
-        (1430, 'maximin', 300, 1, -1, r'$\textrm{Without cooperation}$')
+        ('community-area', 'maximin', 90, 1, 100, r'$\textrm{With cooperation}$'),
+        ('community-area', 'maximin', 90, 1, -1, r'$\textrm{Without cooperation}$')
     ]
     plot_utilities(title, keys)
 
     title = r'$\Large \textrm{Utilitarian Service Goal}$'
     keys = [
-        (1430, 'utilitarian', 300, 1, 101, r'$\textrm{With cooperation}$'),
-        (1430, 'utilitarian', 300, 1, -1, r'$\textrm{Without cooperation}$')
+        ('community-area', 'utilitarian', 90, 1, 100, r'$\textrm{With cooperation}$'),
+        ('community-area', 'utilitarian', 90, 1, -1, r'$\textrm{Without cooperation}$')
     ]
     plot_utilities(title, keys)
