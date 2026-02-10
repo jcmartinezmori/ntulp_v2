@@ -30,7 +30,7 @@ def plot_frames(n, objective, timeLimit, epsLimit, iterCountStart, iterCountEnd)
         with open('{0}/results/solutions/{1}_{2}_{3}.pkl'.format(
                 RELPATH, FILENAME, modelname, iterCount), 'rb'
         ) as file:
-            x_N, _, _, _, _, S, _ = pickle.load(file)
+            x_N, _, _, _, _, S, _, _ = pickle.load(file)
 
         # lines_df['width'] = [LINESCALING * x_N[j] / lines_df.iloc[j].length for j in range(len(x_N))]
         lines_df['width'] = [LINESCALING * np.log2(1 + x_N[j] / lines_df.iloc[j].length) for j in range(len(x_N))]
@@ -39,7 +39,7 @@ def plot_frames(n, objective, timeLimit, epsLimit, iterCountStart, iterCountEnd)
         if S is not None:
             for i, sample in samples_df.iterrows():
                 if sample.community_area in S:
-                    g.nodes[sample.node]['sample_ct'] += sample['count']
+                    g.nodes[sample.node]['sample_ct'] += sample['ct']
                     # g.nodes[trip.d_node]['sample_ct'] += 1
 
         folium_map = folium.Map(location=CENTER, zoom_start=11, tiles=None)
@@ -108,7 +108,7 @@ async def convert_html_to_images(html_dir, pdf_dir, pdf_crop_dir, png_crop_dir, 
 
 if __name__ == '__main__':
     n = 'community_area'
-    objective = 'maximin'
+    objective = 'utilitarian'
     timeLimit = 300
     epsLimit = 1
     iterCountStart = -1
@@ -117,7 +117,7 @@ if __name__ == '__main__':
     pdf_dir = './results/frames/pdf'
     pdf_crop_dir = './results/frames/pdf_crop'
     png_crop_dir = './results/frames/png_crop'
-    cropbox = (475, 175, 825, 675)
+    cropbox = (475, 150, 825, 675)
     png_zoom = 4
     try:
         plot_frames(n, objective, timeLimit, epsLimit, iterCountStart, iterCountEnd)

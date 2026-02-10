@@ -11,15 +11,15 @@ def main(instance, modelname, **kwargs):
 
     N, J, K, A, B, V = instance
 
-    ts = time.time()
+    startTime = time.time()
     slackCount = 0
     cutCount = 0
     iterCount = -1
-    eps, S, = -1, None
+    eps, S = -1, None
 
     m = gp.Model()
     m.Params.OutputFlag = kwargs.get('OutputFlag', 1)
-    m.Params.FeasibilityTol = kwargs.get('FeasibilityTol', 1E-6)
+    m.Params.FeasibilityTol = kwargs.get('FeasibilityTol', 1E-9)
     m.Params.Method = kwargs.get('Method', 1)
     m.Params.NumericFocus = kwargs.get('NumericFocus', 3)
     m.Params.OptimalityTol = kwargs.get('OptimalityTol', 1E-9)
@@ -37,15 +37,18 @@ def main(instance, modelname, **kwargs):
         m.addConstr(m._u[i] + s == gp.quicksum(V[i][j] * m._x[j] for j in J))
 
     objective = kwargs.get('objective', 'utilitarian')
+    utilitarian = gp.quicksum(m._u[i] for i in N)/len(N)
     if objective == 'utilitarian':
-        m.setObjective((gp.quicksum(m._u[i] for i in N))/len(N))
+        m.setObjective(utilitarian)
     elif objective == 'maximin':
         z = m.addVar(vtype=gp.GRB.CONTINUOUS, lb=0, ub=gp.GRB.INFINITY, name='z')
         for i in N:
             s = m.addVar(vtype=gp.GRB.CONTINUOUS, lb=0, ub=gp.GRB.INFINITY, name='s[{0}]'.format(slackCount))
             slackCount += 1
             m.addConstr(z + s == m._u[i])
-        m.setObjective(z + 1E-6*(gp.quicksum(m._u[i] for i in N))/len(N))
+        scale = 1E-6
+        maximin = z + scale * utilitarian
+        m.setObjective(maximin)
     else:
         raise Exception('objective {0} not supported'.format(objective))
 
@@ -54,15 +57,15 @@ def main(instance, modelname, **kwargs):
     u_N = {i: m._u[i].X for i in N}
     kappa = m.getAttr('KappaExact')
 
-    out = x_N, u_N, time.time() - ts, cutCount, eps, S, kappa
+    out = x_N, u_N, time.time() - startTime, cutCount, eps, S, kappa, -1
     with open('{0}/results/solutions/{1}_{2}_{3}.pkl'.format(RELPATH, FILENAME, modelname, iterCount), 'wb') as file:
         pickle.dump(out, file)
 
-    if kwargs.get('indRat', True):
+    if kwargs.get('indRationality', True):
         for i in N:
             s = m.addVar(vtype=gp.GRB.CONTINUOUS, lb=0, ub=gp.GRB.INFINITY, name='s[{0}]'.format(slackCount))
             slackCount += 1
-            m.addConstr(m._u[i] - s == max(V[i][j]/A[0][j] for j in J))
+            m.addConstr(m._u[i] - s == B[i][0] * max(V[i][j]/A[0][j] for j in J))
             cutCount += 1
 
     m.optimize()
@@ -72,14 +75,14 @@ def main(instance, modelname, **kwargs):
 
     timeLimit = kwargs.get('timeLimit', 60)
     iterLimit = kwargs.get('iterLimit', 10)
-    epsLimit = kwargs.get('epsLimit', 0)
+    epsLimit = kwargs.get('epsLimit', 1)
     Starts = {tuple(sorted(N))}
 
     iterCount += 1
-    eps, S = get_blocking(instance, u_N, TimeLimit=timeLimit, Starts=Starts)
+    eps, S, objBound = get_blocking(instance, u_N, TimeLimit=timeLimit, Starts=Starts)
     S = tuple(sorted(S))
 
-    out = x_N, u_N, time.time() - ts, cutCount, eps, S, kappa
+    out = x_N, u_N, time.time() - startTime, cutCount, eps, S, kappa, objBound
     with open('{0}/results/solutions/{1}_{2}_{3}.pkl'.format(RELPATH, FILENAME, modelname, iterCount), 'wb') as file:
         pickle.dump(out, file)
 
@@ -148,10 +151,10 @@ def main(instance, modelname, **kwargs):
         # if iterCount % 2 == 0:
         #     eps, S = get_blocking(instance, u_N, TimeLimit=timeLimit, Starts=Starts, divPhase=False)
         # else:
-        eps, S = get_blocking(instance, u_N, TimeLimit=timeLimit, Starts=Starts, divPhase=False)
+        eps, S, objBound = get_blocking(instance, u_N, TimeLimit=timeLimit, Starts=Starts, divPhase=False)
         S = tuple(sorted(S))
 
-        out = x_N, u_N, time.time() - ts, cutCount, eps, S, kappa
+        out = x_N, u_N, time.time() - startTime, cutCount, eps, S, kappa, objBound
         with open('{0}/results/solutions/{1}_{2}_{3}.pkl'.format(RELPATH, FILENAME, modelname, iterCount), 'wb') as file:
             pickle.dump(out, file)
 
@@ -248,9 +251,10 @@ def get_blocking(instance, u_N, **kwargs):
     m_S.optimize()
 
     eps = m_S._eps.X
+    objBound = m_S.ObjBound
     S = {i for i in N if m_S._y[i].X > 1/2}
 
-    return eps, S
+    return eps, S, objBound
 
 
 def get_intersections(instance, m, constr_names_to_indices, basis_mat_lu, basis_varnames, u_N, S, **kwargs):

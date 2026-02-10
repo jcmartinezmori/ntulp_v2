@@ -16,7 +16,7 @@ def plot_convergence(ns, objectives, timeLimit, epsLimit, iterLimit, showlegend=
                     with open('{0}/results/solutions/{1}_{2}_{3}.pkl'.format(
                             RELPATH, FILENAME, modelname, iterCount
                     ), 'rb') as file:
-                        _, u_N, tt, cutct, eps, S, kappa = pickle.load(file)
+                        _, u_N, tt, cutct, eps, S, kappa, ob = pickle.load(file)
                         tt /= (60 * 60)
                         util_obj = sum(u_N.values())
                         util_obj /= len(u_N)
@@ -113,7 +113,7 @@ def plot_utilities(title, keys):
             with open('{0}/results/solutions/{1}_{2}_{3}.pkl'.format(
                     RELPATH, FILENAME, modelname, iterCount
             ), 'rb') as file:
-                _, u_N, _, _, _, _, _ = pickle.load(file)
+                _, u_N, _, _, _, _, _, _ = pickle.load(file)
                 u_N = sorted(u_N.values())
                 for i, u_i in enumerate(u_N):
                     data.append(
@@ -175,23 +175,23 @@ def plot_utilities(title, keys):
 
 if __name__ == '__main__':
 
-    ns = ['community-area']
+    ns = ['community_area']
     objectives = ['utilitarian', 'maximin']
-    timeLimit = 90
+    timeLimit = 300
     epsLimit = 1
     iterLimit = 100
     plot_convergence(ns, objectives, timeLimit, epsLimit, iterLimit)
 
     title = r'$\Large \textrm{Maximin Service Goal}$'
     keys = [
-        ('community-area', 'maximin', 90, 1, 100, r'$\textrm{With cooperation}$'),
-        ('community-area', 'maximin', 90, 1, -1, r'$\textrm{Without cooperation}$')
+        ('community_area', 'maximin', timeLimit, epsLimit, iterLimit, r'$\textrm{With cooperation}$'),
+        ('community_area', 'maximin', timeLimit, epsLimit, -1, r'$\textrm{Without cooperation}$')
     ]
     plot_utilities(title, keys)
 
     title = r'$\Large \textrm{Utilitarian Service Goal}$'
     keys = [
-        ('community-area', 'utilitarian', 90, 1, 100, r'$\textrm{With cooperation}$'),
-        ('community-area', 'utilitarian', 90, 1, -1, r'$\textrm{Without cooperation}$')
+        ('community_area', 'utilitarian', timeLimit, epsLimit, iterLimit, r'$\textrm{With cooperation}$'),
+        ('community_area', 'utilitarian', timeLimit, epsLimit, -1, r'$\textrm{Without cooperation}$')
     ]
     plot_utilities(title, keys)

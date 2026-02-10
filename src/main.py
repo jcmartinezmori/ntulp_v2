@@ -20,7 +20,7 @@ def main(n, objective, timeLimit, epsLimit, **kwargs):
 
 
 if __name__ == '__main__':
-    n = 'community_area'
+    n = 'community-area'
     objective = 'maximin'
     timeLimit = 300
     epsLimit = 1
