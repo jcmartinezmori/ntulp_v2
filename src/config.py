@@ -2,6 +2,7 @@
 RELPATH = '.'
 BASIC = 0
 CBASIC = 0
+LAMRATIO = 1E-9
 
 # --- instance parameters --- #
 LINES_DIST_TRGT = 400  # meters

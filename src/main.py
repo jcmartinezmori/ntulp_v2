@@ -21,7 +21,7 @@ def main(n, objective, timeLimit, epsLimit, **kwargs):
 
 if __name__ == '__main__':
     n = 'community-area'
-    objective = 'maximin'
+    objective = 'utilitarian'
     timeLimit = 300
     epsLimit = 1
     iterLimit = 100

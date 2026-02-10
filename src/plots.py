@@ -175,7 +175,7 @@ def plot_utilities(title, keys):
 
 if __name__ == '__main__':
 
-    ns = ['community_area']
+    ns = ['community-area']
     objectives = ['utilitarian', 'maximin']
     timeLimit = 300
     epsLimit = 1
@@ -184,14 +184,14 @@ if __name__ == '__main__':
 
     title = r'$\Large \textrm{Maximin Service Goal}$'
     keys = [
-        ('community_area', 'maximin', timeLimit, epsLimit, iterLimit, r'$\textrm{With cooperation}$'),
-        ('community_area', 'maximin', timeLimit, epsLimit, -1, r'$\textrm{Without cooperation}$')
+        ('community-area', 'maximin', timeLimit, epsLimit, iterLimit, r'$\textrm{With cooperation}$'),
+        ('community-area', 'maximin', timeLimit, epsLimit, -1, r'$\textrm{Without cooperation}$')
     ]
     plot_utilities(title, keys)
 
     title = r'$\Large \textrm{Utilitarian Service Goal}$'
     keys = [
-        ('community_area', 'utilitarian', timeLimit, epsLimit, iterLimit, r'$\textrm{With cooperation}$'),
-        ('community_area', 'utilitarian', timeLimit, epsLimit, -1, r'$\textrm{Without cooperation}$')
+        ('community-area', 'utilitarian', timeLimit, epsLimit, iterLimit, r'$\textrm{With cooperation}$'),
+        ('community-area', 'utilitarian', timeLimit, epsLimit, -1, r'$\textrm{Without cooperation}$')
     ]
     plot_utilities(title, keys)

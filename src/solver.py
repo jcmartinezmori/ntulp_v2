@@ -107,50 +107,49 @@ def main(instance, modelname, **kwargs):
 
         print('... adding cuts for previous S.')
         cutPrev = False
-        setS = set(S)
-        for prev_S in Starts:
-            if not setS.isdisjoint(set(prev_S)):
+        for prevS in Starts:
+
+            if not set(S).isdisjoint(set(prevS)):
                 continue
+
             intersections = get_intersections(
-                instance, m, constr_names_to_indices, basis_mat_lu, basis_varnames, u_N, prev_S,
-                epsTh=0, lamRatTh=1E-6
+                instance, m, constr_names_to_indices, basis_mat_lu, basis_varnames, u_N, prevS,
+                epsTol=1+1E-2, lamRatio=LAMRATIO
             )
             if intersections is not None:
-                cutPrev = True
                 min_lam = min(lam for _, lam in intersections)
                 max_lam = max(lam for _, lam in intersections)
                 s = m.addVar(vtype=gp.GRB.CONTINUOUS, lb=0, ub=gp.GRB.INFINITY, name='s[{0}]'.format(slackCount))
                 slackCount += 1
                 m.addConstr(gp.quicksum(m.getVarByName(varname) / lam for varname, lam in intersections) - s == 1)
                 cutCount += 1
-                print('...... added cut for prev. S with coeff. ratio {0}.'.format(min_lam/max_lam))
+                print('...... added cut for previous S with coefficient ratio {0}.'.format(min_lam/max_lam))
+
+                cutPrev = True
+
         print('... adding cut for current S of length {0}.'.format(len(S)))
         intersections = get_intersections(
             instance, m, constr_names_to_indices, basis_mat_lu, basis_varnames, u_N, S,
-            epsTh=0, lamRatTh=0
+            epsTol=1, lamRatio=0
         )
         if intersections is not None:
             min_lam = min(lam for _, lam in intersections)
             max_lam = max(lam for _, lam in intersections)
-            if min_lam/max_lam >= 1E-6 or not cutPrev:
+            if min_lam/max_lam >= LAMRATIO or not cutPrev:
                 s = m.addVar(vtype=gp.GRB.CONTINUOUS, lb=0, ub=gp.GRB.INFINITY, name='s[{0}]'.format(slackCount))
                 slackCount += 1
                 m.addConstr(gp.quicksum(m.getVarByName(varname) / lam for varname, lam in intersections) - s == 1)
                 cutCount += 1
-                print('...... added cut for curr. S with coeff. ratio {0}.'.format(min_lam / max_lam))
-        # if iterCount % 2 == 0:
+                print('...... added cut for current S with coefficient ratio {0}.'.format(min_lam / max_lam))
         Starts.add(S)
-        print('... solving model.')
 
+        print('... re-optimizing.')
         m.optimize()
         x_N = {j: m._x[j].X for j in J}
         u_N = {i: m._u[i].X for i in N}
         kappa = m.getAttr('KappaExact')
 
         iterCount += 1
-        # if iterCount % 2 == 0:
-        #     eps, S = get_blocking(instance, u_N, TimeLimit=timeLimit, Starts=Starts, divPhase=False)
-        # else:
         eps, S, objBound = get_blocking(instance, u_N, TimeLimit=timeLimit, Starts=Starts, divPhase=False)
         S = tuple(sorted(S))
 
@@ -167,39 +166,41 @@ def get_blocking(instance, u_N, **kwargs):
 
     Starts = kwargs.get('Starts', {tuple(sorted(N))}).copy()
 
-    startCts = {i: 0 for i in N}
-    for Start in Starts:
-        for i in Start:
-            startCts[i] += 1
-    weights = {i: np.exp2(-startCts[i]) for i in N}
-    max_weight = max(weights.values())
-    for i in N:
-        weights[i] /= max_weight
+    # startCount = {i: 0 for i in N}
+    # for Start in Starts:
+    #     for i in Start:
+    #         startCount[i] += 1
+    # weights = {i: np.exp2(-startCount[i]) for i in N}
+    # max_weight = max(weights.values())
+    # for i in N:
+    #     weights[i] /= max_weight
 
     for j in J:
-        eps_j, S_j = 0, None
+        eps_j, S_j = 1, None
         A_j = A[0][j]
-        N_j, V_j = zip(*sorted([(i, V[i][j]) for i in N], key=lambda val: val[1], reverse=True))
-        for Ct in range(1, len(N_j) + 1):
-            if V_j[Ct - 1] <= 0:
+        N_j, V_j, _ = zip(*sorted([(i, V[i][j], V[i][j] * B[i][0]) for i in N], key=lambda pair: pair[2], reverse=True))
+        totalBudget_j = 0
+        for idx in range(1, len(N_j) + 1):
+            if V_j[idx - 1] <= 0:
                 break
-            eps = min(V_ij * Ct / A_j - u_N[i] for i, V_ij in zip(N_j[:Ct], V_j[:Ct]))
+            totalBudget_j += B[N_j[idx - 1]][0]
+            eps = min(V_ij * (totalBudget_j / A_j) / u_N[i] for i, V_ij in zip(N_j[:idx], V_j[:idx]))
             if eps > eps_j:
                 eps_j = eps
-                S_j = tuple(sorted(i for i in N_j[:Ct]))
+                S_j = tuple(sorted(N_j[:idx]))
         if S_j is not None:
             Starts.add(S_j)
 
     m_S = gp.Model()
     m_S.Params.BestObjStop = kwargs.get('BestObjStop', m_S.Params.BestObjStop)
     m_S.Params.OutputFlag = kwargs.get('OutputFlag', 1)
-    m_S.Params.FeasibilityTol = kwargs.get('FeasibilityTol', 1E-6)
-    m_S.Params.MIPFocus = kwargs.get('MIPFocus', 1)
+    m_S.Params.FeasibilityTol = kwargs.get('FeasibilityTol', 1E-9)
+    m_S.Params.MIPFocus = kwargs.get('MIPFocus', 2)
     m_S.Params.NumericFocus = kwargs.get('NumericFocus', 3)
     m_S.NumStart = len(Starts)
     m_S.ModelSense = -1
 
-    m_S._del = m_S.addVar(vtype=gp.GRB.CONTINUOUS, lb=0, ub=gp.GRB.INFINITY, name='del')
+    # m_S._del = m_S.addVar(vtype=gp.GRB.CONTINUOUS, lb=0, ub=gp.GRB.INFINITY, name='del')
     m_S._eps = m_S.addVar(vtype=gp.GRB.CONTINUOUS, lb=0, ub=gp.GRB.INFINITY, name='eps')
     m_S._y = m_S.addVars(N, vtype=gp.GRB.BINARY, name='y')
     m_S._x = m_S.addVars(J, vtype=gp.GRB.CONTINUOUS, lb=0, ub=gp.GRB.INFINITY, name='x')
@@ -211,14 +212,13 @@ def get_blocking(instance, u_N, **kwargs):
     for i in N:
         m_S.addConstr(m_S._u[i] == gp.quicksum(V[i][j] * m_S._x[j] for j in J))
     for i in N:
+        m_S.addGenConstrIndicator(m_S._y[i], True, m_S._eps * u_N[i] - m_S._u[i], gp.GRB.LESS_EQUAL, 0)
+        # m_S.addGenConstrIndicator(m_S._y[i], True, m_S._del - m_S._u[i], gp.GRB.LESS_EQUAL, -u_N[i])
+
         # m_S.addGenConstrIndicator(m_S._y[i], True, m_S._del - weights[i] * m_S._u[i], gp.GRB.LESS_EQUAL, - weights[i] * u_N[i])
         # m_S.addGenConstrIndicator(m_S._y[i], True, m_S._eps - m_S._u[i], gp.GRB.LESS_EQUAL, - u_N[i])
         # m_S.addGenConstrIndicator(m_S._y[i], True, m_S._del * weights[i] * u_N[i] - m_S._u[i], gp.GRB.LESS_EQUAL, 0)
-        m_S.addGenConstrIndicator(m_S._y[i], True, m_S._eps * u_N[i] - m_S._u[i], gp.GRB.LESS_EQUAL, 0)
-
-        m_S.addGenConstrIndicator(m_S._y[i], True, m_S._del - m_S._u[i], gp.GRB.LESS_EQUAL, - u_N[i])
-
-    m_S.addConstr(m_S._del >= 1E-3)
+    # m_S.addConstr(m_S._del >= 1E-3)
 
     for StartNumber, Start in enumerate(Starts):
         m_S.Params.StartNumber = StartNumber
@@ -228,31 +228,31 @@ def get_blocking(instance, u_N, **kwargs):
             else:
                 m_S._y[i].Start = 0
 
-    if kwargs.get('divPhase', False):
-
-        m_S.Params.TimeLimit = kwargs.get('TimeLimit', 300)
-        m_S.setObjective(m_S._del)
-        m_S.optimize()
-
-        m_S.NumStart += 1
-        Start = {i for i in N if m_S._y[i].X > 1/2}
-        m_S.Params.StartNumber += 1
-        for i in N:
-            if i in Start:
-                m_S._y[i].Start = 1
-            else:
-                m_S._y[i].Start = 0
-
-        # m_S.addConstr(m_S._del >= m_S._del.X / 2)
-        m_S.addConstr(m_S._del >= 1 + (m_S._del.X - 1)/2)
+    # if kwargs.get('divPhase', False):
+    #
+    #     m_S.Params.TimeLimit = kwargs.get('TimeLimit', 300)
+    #     m_S.setObjective(m_S._del)
+    #     m_S.optimize()
+    #
+    #     m_S.NumStart += 1
+    #     Start = {i for i in N if m_S._y[i].X > 1/2}
+    #     m_S.Params.StartNumber += 1
+    #     for i in N:
+    #         if i in Start:
+    #             m_S._y[i].Start = 1
+    #         else:
+    #             m_S._y[i].Start = 0
+    #
+    #     # m_S.addConstr(m_S._del >= m_S._del.X / 2)
+    #     m_S.addConstr(m_S._del >= 1 + (m_S._del.X - 1)/2)
 
     m_S.Params.TimeLimit = kwargs.get('TimeLimit', 300)
     m_S.setObjective(m_S._eps)
     m_S.optimize()
 
     eps = m_S._eps.X
-    objBound = m_S.ObjBound
     S = {i for i in N if m_S._y[i].X > 1/2}
+    objBound = m_S.ObjBound
 
     return eps, S, objBound
 
@@ -261,14 +261,14 @@ def get_intersections(instance, m, constr_names_to_indices, basis_mat_lu, basis_
 
     N, J, K, A, B, V = instance
 
-    epsTh = kwargs.get('epsTh', 0)
-    lamRatTh = kwargs.get('lamRatTh', 1E-9)
+    epsTol = kwargs.get('epsTol', 1)
+    lamRatio = kwargs.get('lamRatio', 1E-9)
 
     m_S = gp.Model()
     m_S.Params.OutputFlag = kwargs.get('OutputFlag', 0)
-    m_S.Params.FeasibilityTol = kwargs.get('FeasibilityTol', 1E-6)
-    m_S.Params.NumericFocus = kwargs.get('NumericFocus', 0)
-    m_S.Params.OptimalityTol = kwargs.get('OptimalityTol', 1E-6)
+    m_S.Params.FeasibilityTol = kwargs.get('FeasibilityTol', 1E-9)
+    m_S.Params.NumericFocus = kwargs.get('NumericFocus', 3)
+    m_S.Params.OptimalityTol = kwargs.get('OptimalityTol', 1E-9)
     m_S.ModelSense = -1
 
     m_S._lam = m_S.addVar(vtype=gp.GRB.CONTINUOUS, lb=0, ub=gp.GRB.INFINITY, name='lam')
@@ -285,10 +285,10 @@ def get_intersections(instance, m, constr_names_to_indices, basis_mat_lu, basis_
     try:
         constrs = []
         for i in S:
-            constr = m_S.addConstr(m_S._lam <= m_S._u[i] - u_N[i])
+            constr = m_S.addConstr(m_S._lam <= m_S._u[i]/u_N[i])
             constrs.append(constr)
         m_S.optimize()
-        assert m_S._lam.X > epsTh
+        assert m_S._lam.X > epsTol
         m_S.remove(constrs)
         m_S.reset()
     except (AttributeError, AssertionError):
@@ -298,19 +298,16 @@ def get_intersections(instance, m, constr_names_to_indices, basis_mat_lu, basis_
     intersections = []
     for var in m.getVars():
 
-        if var.VBasis == BASIC:
-            continue
-        if var.VarName in basis_varnames:  # gurobi gimmick because of CBasis
+        if var.VarName in basis_varnames:
             continue
 
-        row_indices, values = [], []
+        row_indices, coeffs = [], []
         col = m.getCol(var)
         for i in range(col.size()):
             coeff, constrname = col.getCoeff(i), col.getConstr(i).ConstrName
             row_indices.append(constr_names_to_indices[constrname])
-            values.append(coeff)
-        col = ss.csr_matrix((values, (row_indices, np.zeros_like(row_indices))), shape=(m.NumConstrs, 1))
-        # inv_basis_mat_col = ss.linalg.spsolve(basis_mat, col)
+            coeffs.append(coeff)
+        col = ss.csr_matrix((coeffs, (row_indices, np.zeros_like(row_indices))), shape=(m.NumConstrs, 1))
         inv_basis_mat_col = basis_mat_lu.solve(col.toarray())
 
         # r = {v.VarName: 0 for v in m.getVars()}
@@ -332,13 +329,13 @@ def get_intersections(instance, m, constr_names_to_indices, basis_mat_lu, basis_
                 constrs.append(constr)
         m_S.optimize()
         if m_S.Status == 2:
-            if m_S._lam.X < lamRatTh or m_S._lam.X > (1/lamRatTh if lamRatTh > 0 else np.inf):
-                return None
+            # if m_S._lam.X < lamRatTh or m_S._lam.X > (1/lamRatTh if lamRatTh > 0 else np.inf):
+            #     return None
             if m_S._lam.X < min_lam:
                 min_lam = m_S._lam.X
             if m_S._lam.X > max_lam:
                 max_lam = m_S._lam.X
-            if min_lam/max_lam < lamRatTh:
+            if min_lam/max_lam < lamRatio:
                 return None
             intersections.append((var.VarName, m_S._lam.X))
         m_S.remove(constrs)
@@ -354,7 +351,7 @@ def get_basis(m, constr_names_to_indices):
 
     basis_varnames = []
     col_index = 0
-    row_indices, col_indices, values = [], [], []
+    row_indices, col_indices, coeffs = [], [], []
 
     for var in m.getVars():
         if var.VBasis == BASIC:
@@ -364,7 +361,7 @@ def get_basis(m, constr_names_to_indices):
                 coeff, constrname = col.getCoeff(i), col.getConstr(i).ConstrName
                 row_indices.append(constr_names_to_indices[constrname])
                 col_indices.append(col_index)
-                values.append(coeff)
+                coeffs.append(coeff)
             col_index += 1
 
     for constr in m.getConstrs():  # gurobi gimmick because of CBasis
@@ -379,11 +376,10 @@ def get_basis(m, constr_names_to_indices):
                         coeff, constrname = col.getCoeff(i), col.getConstr(i).ConstrName
                         row_indices.append(constr_names_to_indices[constrname])
                         col_indices.append(col_index)
-                        values.append(coeff)
+                        coeffs.append(coeff)
                     col_index += 1
                     break
 
-    basis_mat = ss.csr_matrix((values, (row_indices, col_indices)), shape=(m.NumConstrs, m.NumConstrs))
+    basis_mat = ss.csr_matrix((coeffs, (row_indices, col_indices)), shape=(m.NumConstrs, m.NumConstrs))
 
     return basis_mat, basis_varnames
-
