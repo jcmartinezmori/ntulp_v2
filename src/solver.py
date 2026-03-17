@@ -37,7 +37,7 @@ def main(instance, modelname, **kwargs):
         m.addConstr(m._u[i] + s == gp.quicksum(V[i][j] * m._x[j] for j in J))
 
     objective = kwargs.get('objective', 'utilitarian')
-    utilitarian = gp.quicksum(m._u[i] for i in N)/len(N)
+    utilitarian = gp.quicksum(B[i][0] * m._u[i] for i in N) / sum(B[i][0] for i in N)
     if objective == 'utilitarian':
         m.setObjective(utilitarian)
     elif objective == 'maximin':
@@ -79,10 +79,10 @@ def main(instance, modelname, **kwargs):
     Starts = {tuple(sorted(N))}
 
     iterCount += 1
-    eps, S, objBound = get_blocking(instance, u_N, TimeLimit=timeLimit, Starts=Starts)
+    eps, S, epsMIPGap = get_blocking(instance, u_N, TimeLimit=timeLimit, Starts=Starts)
     S = tuple(sorted(S))
 
-    out = x_N, u_N, time.time() - startTime, cutCount, eps, S, kappa, objBound
+    out = x_N, u_N, time.time() - startTime, cutCount, eps, S, kappa, epsMIPGap
     with open('{0}/results/solutions/{1}_{2}_{3}.pkl'.format(RELPATH, FILENAME, modelname, iterCount), 'wb') as file:
         pickle.dump(out, file)
 
@@ -150,10 +150,10 @@ def main(instance, modelname, **kwargs):
         kappa = m.getAttr('KappaExact')
 
         iterCount += 1
-        eps, S, objBound = get_blocking(instance, u_N, TimeLimit=timeLimit, Starts=Starts, divPhase=False)
+        eps, S, epsMIPGap = get_blocking(instance, u_N, TimeLimit=timeLimit, Starts=Starts, divPhase=False)
         S = tuple(sorted(S))
 
-        out = x_N, u_N, time.time() - startTime, cutCount, eps, S, kappa, objBound
+        out = x_N, u_N, time.time() - startTime, cutCount, eps, S, kappa, epsMIPGap
         with open('{0}/results/solutions/{1}_{2}_{3}.pkl'.format(RELPATH, FILENAME, modelname, iterCount), 'wb') as file:
             pickle.dump(out, file)
 
@@ -252,9 +252,9 @@ def get_blocking(instance, u_N, **kwargs):
 
     eps = m_S._eps.X
     S = {i for i in N if m_S._y[i].X > 1/2}
-    objBound = m_S.ObjBound
+    epsMIPGap = m_S.MIPGap
 
-    return eps, S, objBound
+    return eps, S, epsMIPGap
 
 
 def get_intersections(instance, m, constr_names_to_indices, basis_mat_lu, basis_varnames, u_N, S, **kwargs):

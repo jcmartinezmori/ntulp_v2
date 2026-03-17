@@ -20,6 +20,8 @@ def community_area():
     B = [[0] for _ in N]
     V = [np.array([0 for _ in J], dtype=float) for _ in N]
 
+    V_riders = []
+
     for idx, trip in trips_df.iterrows():
         print(idx)
         if int(trip.o_node) in AIRPORT_NODES or int(trip.d_node) in AIRPORT_NODES:
@@ -55,6 +57,8 @@ def community_area():
         B[int(trip['Dropoff Community Area'] - 1)][0] += 1
         V[int(trip['Dropoff Community Area'] - 1)] += V_t
 
+        V_riders.append(V_t)
+
         samples_df.append((int(trip['Pickup Community Area'] - 1), trip['o_x'], trip['o_y']))
         samples_df.append((int(trip['Dropoff Community Area'] - 1), trip['d_x'], trip['d_y']))
 
@@ -64,7 +68,10 @@ def community_area():
     samples_df['ct'] = samples_df['community_area'].map({i: B[i][0] for i in N})
 
     for i, V_i in enumerate(V):
-        V[i] = V_i / np.linalg.norm(V_i)
+        V[i] = V_i / B[i][0]
+
+    V_riders = pd.DataFrame(V_riders)
+    V_riders.to_csv('{0}/results/instances/V_riders.csv'.format(RELPATH, FILENAME), index=False)
 
     samples_df.to_csv('{0}/results/instances/samples_df_{1}_{2}.csv'.format(RELPATH, FILENAME, 'community_area'), index=False)
 

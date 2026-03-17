@@ -1,6 +1,7 @@
 import asyncio
 import fitz
 import folium
+import geopandas as gpd
 import numpy as np
 import os
 import pandas as pd
@@ -12,6 +13,7 @@ import src.helper as helper
 import subprocess
 from pathlib import Path
 from playwright.async_api import async_playwright
+from shapely import wkt
 
 
 def plot_frames(n, objective, timeLimit, epsLimit, iterCountStart, iterCountEnd):
@@ -25,6 +27,10 @@ def plot_frames(n, objective, timeLimit, epsLimit, iterCountStart, iterCountEnd)
     g, _, lines_df, trips_df = helper.preprocess_load()
     samples_df = pd.read_csv('{0}/results/instances/samples_df_{1}_{2}.csv'.format(RELPATH, FILENAME, n))
 
+    areas_df = gpd.read_file('./data/community_areas.csv')
+    areas_df["geometry"] = areas_df["the_geom"].apply(wkt.loads)
+    gdf = gpd.GeoDataFrame(areas_df, geometry="geometry", crs="EPSG:4326")
+
     for iterCount in range(iterCountStart, iterCountEnd + 1):
 
         with open('{0}/results/solutions/{1}_{2}_{3}.pkl'.format(
@@ -37,10 +43,9 @@ def plot_frames(n, objective, timeLimit, epsLimit, iterCountStart, iterCountEnd)
         for _, data in g.nodes(data=True):
             data['sample_ct'] = 0
         if S is not None:
-            for i, sample in samples_df.iterrows():
+            for _, sample in samples_df.iterrows():
                 if sample.community_area in S:
-                    g.nodes[sample.node]['sample_ct'] += sample['ct']
-                    # g.nodes[trip.d_node]['sample_ct'] += 1
+                    g.nodes[int(sample.node)]['sample_ct'] = int(sample.ct)
 
         folium_map = folium.Map(location=CENTER, zoom_start=11, tiles=None)
         folium.TileLayer('OpenStreetMap', opacity=1/6).add_to(folium_map)
@@ -55,6 +60,19 @@ def plot_frames(n, objective, timeLimit, epsLimit, iterCountStart, iterCountEnd)
                     location=(data['y'], data['x']), color=HEXBLACK, radius=np.log2(1 + data['sample_ct']), weight=0,
                     fill=True, fill_opacity=1, tooltip=u
                 ).add_to(folium_map)
+
+        if S is not None:
+            S_gdf = gdf.loc[gdf.index.intersection(S)]
+            folium.GeoJson(
+                S_gdf.__geo_interface__,
+                style_function=lambda feat: {
+                    "color": HEXBLACK,
+                    "weight": 2,
+                    "fillColor": HEXGOLD,
+                    "fillOpacity": 0.25,
+                }
+            ).add_to(folium_map)
+
         folium_map.save('{0}/pos1_{1}_{2}_{3}.html'.format(html_dir, FILENAME, modelname, iterCount))
         folium_map.save('{0}/pos2_{1}_{2}_{3}.html'.format(html_dir, FILENAME, modelname, iterCount))
 
@@ -107,17 +125,17 @@ async def convert_html_to_images(html_dir, pdf_dir, pdf_crop_dir, png_crop_dir, 
 
 
 if __name__ == '__main__':
-    n = 'community_area'
-    objective = 'utilitarian'
+    n = 'community-area'
+    objective = 'maximin'
     timeLimit = 300
     epsLimit = 1
     iterCountStart = -1
     iterCountEnd = 100
-    html_dir = './results/frames/html'
-    pdf_dir = './results/frames/pdf'
-    pdf_crop_dir = './results/frames/pdf_crop'
-    png_crop_dir = './results/frames/png_crop'
-    cropbox = (475, 150, 825, 675)
+    html_dir = './results/frames/{0}/html'.format(objective)
+    pdf_dir = './results/frames/{0}/pdf'.format(objective)
+    pdf_crop_dir = './results/frames/{0}/pdf_crop'.format(objective)
+    png_crop_dir = './results/frames/{0}/png_crop'.format(objective)
+    cropbox = (460, 180, 810, 710)
     png_zoom = 4
     try:
         plot_frames(n, objective, timeLimit, epsLimit, iterCountStart, iterCountEnd)

@@ -9,6 +9,11 @@ def plot_convergence(ns, objectives, timeLimit, epsLimit, iterLimit, showlegend=
 
     data = []
     for n in ns:
+
+        with open('{0}/results/instances/instance_{1}_{2}.pkl'.format(RELPATH, FILENAME, n), 'rb') as file:
+            instance = pickle.load(file)
+        N, J, K, A, B, V = instance
+
         for objective in objectives:
             modelname = '{0}-{1}-{2}-{3}'.format(n, objective, timeLimit, epsLimit)
             for iterCount in range(iterLimit + 1):
@@ -16,17 +21,17 @@ def plot_convergence(ns, objectives, timeLimit, epsLimit, iterLimit, showlegend=
                     with open('{0}/results/solutions/{1}_{2}_{3}.pkl'.format(
                             RELPATH, FILENAME, modelname, iterCount
                     ), 'rb') as file:
-                        _, u_N, tt, cutct, eps, S, kappa, ob = pickle.load(file)
-                        tt /= (60 * 60)
-                        util_obj = sum(u_N.values())
-                        util_obj /= len(u_N)
-                        mxmn_obj = min(u_N.values())
+                        _, u_N, totTime, cutCount, eps, S, kappa, epsMIPGap = pickle.load(file)
+                        totTime /= (60 * 60)
+                        utilObj = sum(B[i][0] * u_N[i] for i in N) / sum(B[i][0] for i in N)
+                        maximinObj = min(u_N[i] for i in N)
                         min_S_util = min(u_N[i] for i in S)
                         max_S_util = max(u_N[i] for i in S)
                         data.append(
                             (
                                 n, objective, timeLimit, iterCount,
-                                tt, cutct, kappa, eps, util_obj, mxmn_obj, min_S_util, max_S_util
+                                totTime, cutCount, eps, kappa, epsMIPGap,
+                                utilObj, maximinObj, min_S_util, max_S_util
                             )
                         )
                 except FileNotFoundError:
@@ -36,7 +41,9 @@ def plot_convergence(ns, objectives, timeLimit, epsLimit, iterLimit, showlegend=
         data,
         columns=[
             'n', 'objective', 'timelimit', 'iterCount',
-            'tt', 'cutct', 'kappa', 'eps', 'util_obj', 'mxmn_obj', 'min_S_util', 'max_S_util']
+            'totTime', 'cutCount', 'eps', 'kappa', 'epsMIPGap',
+            'utilObj', 'maximinObj', 'min_S_util', 'max_S_util'
+        ]
     )
 
     color_map = {n: HEXCOLOR for n, HEXCOLOR in zip(ns, HEXCOLORS)}
@@ -50,12 +57,13 @@ def plot_convergence(ns, objectives, timeLimit, epsLimit, iterLimit, showlegend=
     # )
 
     plots = (
-        ('tt', r'$\large \textrm{Elapsed time [hr.]}$'),
-        ('cutct', r'$\large \textrm{Number of Cuts}$'),
-        ('kappa', r'$\large \textrm{Basis Condition Number}$'),
+        ('totTime', r'$\large \textrm{Elapsed time [hr.]}$'),
+        ('cutCount', r'$\large \textrm{Number of Cuts}$'),
         ('eps', r'$\large \textrm{Multiplicative Least Objection (}\epsilon\textrm{)}$'),
-        ('util_obj', r'$\large \textrm{Utilitarian Social Welfare}$'),
-        ('mxmn_obj', r'$\large \textrm{Maximin Social Welfare}$'),
+        ('epsMIPGap', r'$\large \textrm{Optimality Gap of Multiplicative Least Objection (}\epsilon\textrm{)}$'),
+        ('kappa', r'$\large \textrm{Basis Condition Number}$'),
+        ('utilObj', r'$\large \textrm{Utilitarian Social Welfare}$'),
+        ('maximinObj', r'$\large \textrm{Maximin Social Welfare}$'),
         ('min_S_util', r'$\large \textrm{min_S_util}$'),
         ('max_S_util', r'$\large \textrm{max_S_util}$')
     )
@@ -180,6 +188,7 @@ if __name__ == '__main__':
     timeLimit = 300
     epsLimit = 1
     iterLimit = 100
+
     plot_convergence(ns, objectives, timeLimit, epsLimit, iterLimit)
 
     title = r'$\Large \textrm{Maximin Service Goal}$'

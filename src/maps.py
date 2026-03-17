@@ -1,5 +1,6 @@
 import asyncio
 import folium
+import geopandas as gpd
 import numpy as np
 import os
 import pandas as pd
@@ -9,6 +10,7 @@ from src.frames import convert_html_to_images
 import src.helper as helper
 from pathlib import Path
 from playwright.async_api import async_playwright
+from shapely import wkt
 
 
 def main(n, samples=True, lines=True):
@@ -21,21 +23,33 @@ def main(n, samples=True, lines=True):
         samples_df = pd.read_csv('{0}/results/instances/samples_df_{1}_{2}.csv'.format(RELPATH, FILENAME, n))
         for _, data in g.nodes(data=True):
             data['sample_ct'] = 0
-        for _, trip in samples_df.iterrows():
-            g.nodes[int(trip.o_node)]['sample_ct'] += 1
-            g.nodes[int(trip.d_node)]['sample_ct'] += 1
+        for _, sample in samples_df.iterrows():
+            g.nodes[int(sample.node)]['sample_ct'] = int(sample.ct)
         for u, data in g.nodes(data=True):
             if data['sample_ct']:
                 folium.CircleMarker(
-                    location=(data['y'], data['x']), color=HEXBLACK, radius=np.log(1 + data['sample_ct']), weight=0,
+                    location=(data['y'], data['x']), color=HEXBLACK, radius=np.log2(1 + data['sample_ct']), weight=0,
                     fill=True, fill_opacity=1, tooltip=u
                 ).add_to(folium_map)
     if lines:
-        lines_df['width'] = 3/4
+        lines_df['width'] = LINESCALING
         for _, line in lines_df.iterrows():
             folium.PolyLine(
                 line.coords, color=line.hexcolor, weight=line.width, opacity=3/4, tooltip=line.name
             ).add_to(folium_map)
+
+    areas_df = gpd.read_file('./data/community_areas.csv')
+    areas_df["geometry"] = areas_df["the_geom"].apply(wkt.loads)
+    gdf = gpd.GeoDataFrame(areas_df, geometry="geometry", crs="EPSG:4326")
+    folium.GeoJson(
+        gdf.__geo_interface__,
+        style_function=lambda feat: {
+            "color": HEXBLACK,
+            "weight": 2,
+            "fillColor": HEXGOLD,
+            "fillOpacity": 0.25,
+        }
+    ).add_to(folium_map)
 
     folium_map.save('{0}/results/maps/html/map_{1}_{2}_{3}_{4}.html'.format(
         RELPATH, FILENAME, n, 'samples' if samples else 'nosamples', 'lines' if lines else 'nolines')
@@ -43,15 +57,14 @@ def main(n, samples=True, lines=True):
 
 
 if __name__ == '__main__':
-    ns = [1430]
+    n = 'community-area'
     html_dir = './results/maps/html'
     pdf_dir = './results/maps/pdf'
     pdf_crop_dir = './results/maps/pdf_crop'
     png_crop_dir = './results/maps/png_crop'
-    cropbox = (475, 175, 825, 675)
+    cropbox = (460, 180, 810, 710)
     png_zoom = 4
-    for n in ns:
-        main(n, samples=True, lines=False)
-        main(n, samples=False, lines=True)
+    main(n, samples=True, lines=False)
+    main(n, samples=False, lines=True)
     asyncio.run(convert_html_to_images(html_dir, pdf_dir, pdf_crop_dir, png_crop_dir, cropbox, png_zoom))
 
