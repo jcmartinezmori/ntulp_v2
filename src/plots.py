@@ -8,6 +8,7 @@ from src.config import *
 def plot_convergence(ns, objectives, timeLimit, epsLimit, iterLimit, showlegend=False):
 
     data = []
+
     for n in ns:
 
         with open('{0}/results/instances/instance_{1}_{2}.pkl'.format(RELPATH, FILENAME, n), 'rb') as file:
@@ -21,17 +22,16 @@ def plot_convergence(ns, objectives, timeLimit, epsLimit, iterLimit, showlegend=
                     with open('{0}/results/solutions/{1}_{2}_{3}.pkl'.format(
                             RELPATH, FILENAME, modelname, iterCount
                     ), 'rb') as file:
-                        _, u_N, totTime, cutCount, eps, S, kappa, epsMIPGap = pickle.load(file)
+                        _, u_N, totTime, cutCount, eps, _, kappa, epsMIPGap = pickle.load(file)
                         totTime /= (60 * 60)
+                        epsMIPGap *= 100
                         utilObj = sum(B[i][0] * u_N[i] for i in N) / sum(B[i][0] for i in N)
                         maximinObj = min(u_N[i] for i in N)
-                        min_S_util = min(u_N[i] for i in S)
-                        max_S_util = max(u_N[i] for i in S)
                         data.append(
                             (
                                 n, objective, timeLimit, iterCount,
                                 totTime, cutCount, eps, kappa, epsMIPGap,
-                                utilObj, maximinObj, min_S_util, max_S_util
+                                utilObj, maximinObj
                             )
                         )
                 except FileNotFoundError:
@@ -42,7 +42,7 @@ def plot_convergence(ns, objectives, timeLimit, epsLimit, iterLimit, showlegend=
         columns=[
             'n', 'objective', 'timelimit', 'iterCount',
             'totTime', 'cutCount', 'eps', 'kappa', 'epsMIPGap',
-            'utilObj', 'maximinObj', 'min_S_util', 'max_S_util'
+            'utilObj', 'maximinObj'
         ]
     )
 
@@ -50,28 +50,24 @@ def plot_convergence(ns, objectives, timeLimit, epsLimit, iterLimit, showlegend=
     marker_map = {n: MARKER for n, MARKER in zip(ns, MARKERS)}
     subplot_map = {objective: idx + 1 for idx, objective in enumerate(objectives)}
 
-    # plots = (
-    #     ('eps', r'$\large \textrm{Multiplicative Least Objection (}\epsilon\textrm{)}$'),
-    #     ('mxmn_obj', r'$\large \textrm{Maximin Social Welfare}$'),
-    #     ('kappa', r'$\large \textrm{Basis Condition Number}$')
-    # )
-
     plots = (
         ('totTime', r'$\large \textrm{Elapsed time [hr.]}$'),
         ('cutCount', r'$\large \textrm{Number of Cuts}$'),
-        ('eps', r'$\large \textrm{Multiplicative Least Objection (}\epsilon\textrm{)}$'),
-        ('epsMIPGap', r'$\large \textrm{Optimality Gap of Multiplicative Least Objection (}\epsilon\textrm{)}$'),
+        ('eps', r'$\large \textrm{Multiplicative Least Objection}$'),
         ('kappa', r'$\large \textrm{Basis Condition Number}$'),
+        ('epsMIPGap', r'$\large \textrm{Optimality Gap % of Multiplicative Least Objection}$'),
         ('utilObj', r'$\large \textrm{Utilitarian Social Welfare}$'),
-        ('maximinObj', r'$\large \textrm{Maximin Social Welfare}$'),
-        ('min_S_util', r'$\large \textrm{min_S_util}$'),
-        ('max_S_util', r'$\large \textrm{max_S_util}$')
+        ('maximinObj', r'$\large \textrm{Maximin Social Welfare}$')
     )
+    subplot_titles = {
+        'utilitarian': r'$\Large \textrm{Utilitarian Service Goal}$',
+        'maximin': r'$\Large \textrm{Maximin Service Goal}$'
+    }
 
     for col, title in plots:
         fig = make_subplots(
             rows=1, cols=len(objectives), shared_xaxes=True, shared_yaxes=True,
-            subplot_titles=(r'$\Large \textrm{Maximin Service Goal}$', r'$\Large \textrm{Utilitarian Service Goal}$')
+            subplot_titles=[subplot_titles[objective] for objective in objectives]
         )
         for (objective, n), group_df in df.groupby(['objective', 'n']):
             fig.add_trace(
@@ -87,46 +83,59 @@ def plot_convergence(ns, objectives, timeLimit, epsLimit, iterLimit, showlegend=
                 row=1,
                 col=subplot_map[objective]
             )
+            if col in {'eps'}:
+                fig.add_trace(
+                    go.Scatter(
+                        x=group_df['iterCount'],
+                        y=[1 for _ in group_df['iterCount']],
+                        line={'color': HEXREDDISHPURPUPLE, 'dash':'dot'},
+                        showlegend=False
+                    ),
+                    row=1,
+                    col=subplot_map[objective]
+                )
         if col in {'kappa'}:
             fig.update_yaxes(type='log')
         fig.update_yaxes(
             row=1, col=1,
-            title_text=title, title_font={'size': 18}
+            title_text=title, title_font={'size': 26}
         )
         for idx, _ in enumerate(objectives):
             fig.update_xaxes(
                 row=1, col=idx + 1,
-                range=[0, iterLimit], title_text=r'$\large \textrm{Number of Iterations}$', title_font={'size': 18}
+                range=[0, iterLimit], title_text=r'$\large \textrm{Number of Iterations}$', title_font={'size': 24}
             )
         for annotation in fig['layout']['annotations']:
-            annotation['font'] = {'size': 22}
+            annotation['font'] = {'size': 24}
             annotation['y'] = 1.0125
-        fig.update_layout(
-            legend={
-                'orientation': 'h', 'entrywidth': 200, 'yanchor': 'top', 'y': -0.125, 'xanchor': 'left', 'x': 0,
-                'font': {'size': 14}
-            }
-        )
 
-        fig.show()
-        fig.write_image('./results/figures/{0}.png'.format(col), width=1000, height=500, scale=4)
+        # fig.show()
+        fig.write_image('./results/figures/{0}.png'.format(col), width=1200, height=600)
 
 
 def plot_utilities(title, keys):
 
     data = []
+
     for n, objective, timeLimit, epsLimit, iterCount, subtitle in keys:
+
+        V_riders = pd.read_csv('{0}/results/instances/V_riders.csv'.format(RELPATH, FILENAME))
+
         modelname = '{0}-{1}-{2}-{3}'.format(n, objective, timeLimit, epsLimit)
         try:
             with open('{0}/results/solutions/{1}_{2}_{3}.pkl'.format(
                     RELPATH, FILENAME, modelname, iterCount
             ), 'rb') as file:
-                _, u_N, _, _, _, _, _, _ = pickle.load(file)
-                u_N = sorted(u_N.values())
-                for i, u_i in enumerate(u_N):
+                x_N, _, _, _, _, _, _, _ = pickle.load(file)
+
+                x_N = pd.Series(x_N)
+                x_N.index = x_N.index.astype(int) - 1
+
+                u_riders = sorted(V_riders.to_numpy() @ x_N.to_numpy())
+                for r, u_r in enumerate(u_riders):
                     data.append(
                         (
-                            n, objective, timeLimit, epsLimit, iterCount, subtitle, i + 1, u_i
+                            n, objective, timeLimit, epsLimit, iterCount, subtitle, r + 1, u_r
                         )
                     )
         except FileNotFoundError:
@@ -134,7 +143,7 @@ def plot_utilities(title, keys):
 
     df = pd.DataFrame(
         data,
-        columns=['n', 'objective', 'timeLimit', 'epsLimit', 'iterCount', 'title', 'i', 'u_i']
+        columns=['n', 'objective', 'timeLimit', 'epsLimit', 'iterCount', 'title', 'r', 'u_r']
     )
 
     color_map = {key: HEXCOLOR for key, HEXCOLOR in zip(keys, HEXCOLORS)}
@@ -146,11 +155,11 @@ def plot_utilities(title, keys):
     )
 
     for key, group_df in df.groupby(['n', 'objective', 'timeLimit', 'epsLimit', 'iterCount', 'title']):
-        _, _, _, _, _, subtitle = key
+        _, objective, _, _, _, subtitle = key
         fig.add_trace(
             go.Scatter(
-                x=group_df['i'],
-                y=group_df['u_i'],
+                x=group_df['r'],
+                y=group_df['u_r'],
                 mode='lines+markers',
                 name=subtitle,
                 line={'color': color_map[key], 'dash': 'solid'},
@@ -161,30 +170,31 @@ def plot_utilities(title, keys):
 
     fig.update_yaxes(
         row=1, col=1,
-        title_text=r'$\large \textrm{Utility}$', title_font={'size': 18}
+        title_text=r'$\large \textrm{Rider Utility}$', title_font={'size': 24},
+        range=[0, 50000]
     )
     fig.update_xaxes(
         row=1, col=1,
-        title_text=r'$\large \textrm{Riders (Sorted by Utility)}$', title_font={'size': 18}
+        title_text=r'$\large \textrm{Riders (sorted by Rider Utility)}$', title_font={'size': 24}
     )
     for annotation in fig['layout']['annotations']:
-        annotation['font'] = {'size': 22}
+        annotation['font'] = {'size': 24}
         annotation['y'] = 1.0125
     fig.update_layout(
         legend={
-            'orientation': 'h', 'entrywidth': 200, 'yanchor': 'top', 'y': -0.125, 'xanchor': 'left', 'x': 0,
-            'font': {'size': 14}
+            'orientation': 'h', 'yanchor': 'top', 'y': 0.925, 'xanchor': 'left', 'x': 0.075,
+            'font': {'size': 22}, 'entrywidth': 150,
         }
     )
 
-    fig.show()
-    fig.write_image('./results/figures/utils.png', width=800, height=600, scale=4)
+    # fig.show()
+    fig.write_image('./results/figures/utils-{0}.png'.format(objective), width=800, height=600, scale=4)
 
 
 if __name__ == '__main__':
 
     ns = ['community-area']
-    objectives = ['utilitarian', 'maximin']
+    objectives = ['maximin', 'utilitarian']
     timeLimit = 300
     epsLimit = 1
     iterLimit = 100

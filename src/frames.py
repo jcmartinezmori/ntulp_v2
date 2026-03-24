@@ -38,8 +38,10 @@ def plot_frames(n, objective, timeLimit, epsLimit, iterCountStart, iterCountEnd)
         ) as file:
             x_N, _, _, _, _, S, _, _ = pickle.load(file)
 
-        # lines_df['width'] = [LINESCALING * x_N[j] / lines_df.iloc[j].length for j in range(len(x_N))]
-        lines_df['width'] = [LINESCALING * np.log2(1 + x_N[j] / lines_df.iloc[j].length) for j in range(len(x_N))]
+        # lines_df['width'] = [LINESCALING * np.log2(1 + x_N[j] / lines_df.iloc[j].length) for j in range(len(x_N))]
+        lines_df['width'] = [1 / (2 * LINESCALING) * np.log2(1 + x_N[j]) for j in range(len(x_N))]
+        # lines_df['width'] = [x_N[j] / LINESCALING for j in range(len(x_N))]
+
         for _, data in g.nodes(data=True):
             data['sample_ct'] = 0
         if S is not None:
@@ -77,7 +79,7 @@ def plot_frames(n, objective, timeLimit, epsLimit, iterCountStart, iterCountEnd)
         folium_map.save('{0}/pos2_{1}_{2}_{3}.html'.format(html_dir, FILENAME, modelname, iterCount))
 
 
-async def convert_html_to_images(html_dir, pdf_dir, pdf_crop_dir, png_crop_dir, cropbox, png_zoom):
+async def convert_html_to_images(html_dir, pdf_dir, pdf_crop_dir, png_crop_dir, cropbox, png_zoom, objective=None):
 
     if os.path.exists(pdf_dir):
         shutil.rmtree(pdf_dir)
@@ -99,7 +101,10 @@ async def convert_html_to_images(html_dir, pdf_dir, pdf_crop_dir, png_crop_dir, 
         for i, html_file in enumerate(html_files):
 
             file_url = html_file.resolve().as_uri()
-            pdf_out = Path(pdf_dir)/f'frame_{i:04d}.pdf'
+            if objective is None:
+                pdf_out = Path(pdf_dir)/f'frame_{i:04d}.pdf'
+            else:
+                pdf_out = Path(pdf_dir) / f'{objective}_frame_{i:04d}.pdf'
 
             await page.goto(file_url)
             await page.set_viewport_size({'width': 1920, 'height': 1080})
@@ -126,7 +131,7 @@ async def convert_html_to_images(html_dir, pdf_dir, pdf_crop_dir, png_crop_dir, 
 
 if __name__ == '__main__':
     n = 'community-area'
-    objective = 'maximin'
+    objective = 'utilitarian'
     timeLimit = 300
     epsLimit = 1
     iterCountStart = -1
@@ -139,7 +144,7 @@ if __name__ == '__main__':
     png_zoom = 4
     try:
         plot_frames(n, objective, timeLimit, epsLimit, iterCountStart, iterCountEnd)
-        asyncio.run(convert_html_to_images(html_dir, pdf_dir, pdf_crop_dir, png_crop_dir, cropbox, png_zoom))
+        asyncio.run(convert_html_to_images(html_dir, pdf_dir, pdf_crop_dir, png_crop_dir, cropbox, png_zoom, objective=objective))
     except FileNotFoundError:
         pass
     """
