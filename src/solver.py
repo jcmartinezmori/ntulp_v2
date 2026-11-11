@@ -26,7 +26,7 @@ def main(instance, modelname, **kwargs):
     m.ModelSense = -1
 
     m._x = m.addVars(J, vtype=gp.GRB.CONTINUOUS, lb=0, ub=gp.GRB.INFINITY, name='x')
-    m._u = m.addVars(N, vtype=gp.GRB.CONTINUOUS, lb=0, ub=gp.GRB.INFINITY, name='u')
+    m._u = m.addVars(N, vtype=gp.GRB.CONTINUOUS, lb=-gp.GRB.INFINITY, ub=gp.GRB.INFINITY, name='u')
     for k in K:
         s = m.addVar(vtype=gp.GRB.CONTINUOUS, lb=0, ub=gp.GRB.INFINITY, name='s[{0}]'.format(slackCount))
         slackCount += 1
@@ -204,7 +204,7 @@ def get_blocking(instance, u_N, **kwargs):
     m_S._eps = m_S.addVar(vtype=gp.GRB.CONTINUOUS, lb=0, ub=gp.GRB.INFINITY, name='eps')
     m_S._y = m_S.addVars(N, vtype=gp.GRB.BINARY, name='y')
     m_S._x = m_S.addVars(J, vtype=gp.GRB.CONTINUOUS, lb=0, ub=gp.GRB.INFINITY, name='x')
-    m_S._u = m_S.addVars(N, vtype=gp.GRB.CONTINUOUS, lb=0, ub=gp.GRB.INFINITY, name='u')
+    m_S._u = m_S.addVars(N, vtype=gp.GRB.CONTINUOUS, lb=-gp.GRB.INFINITY, ub=gp.GRB.INFINITY, name='u')
 
     m_S.addConstr(gp.quicksum(m_S._y[i] for i in N) >= 1)
     for k in K:
@@ -383,3 +383,48 @@ def get_basis(m, constr_names_to_indices):
     basis_mat = ss.csr_matrix((coeffs, (row_indices, col_indices)), shape=(m.NumConstrs, m.NumConstrs))
 
     return basis_mat, basis_varnames
+
+
+def nash(instance, modelname, **kwargs):
+
+    N, J, K, A, B, V = instance
+
+    startTime = time.time()
+    cutCount = 0
+    iterCount = -1
+    eps, S = -1, None
+
+    m = gp.Model()
+
+    m._x = m.addVars(J, lb=0, ub=gp.GRB.INFINITY, vtype=gp.GRB.CONTINUOUS, name='x')
+    m._u = m.addVars(N, lb=0, ub=gp.GRB.INFINITY, vtype=gp.GRB.CONTINUOUS, name='u')
+    m._logu = m.addVars(N, lb=-gp.GRB.INFINITY, ub=gp.GRB.INFINITY, vtype=gp.GRB.CONTINUOUS, name='logu')
+
+    for i in N:
+        m.addConstr(m._u[i] == gp.quicksum(V[i][j] * m._x[j] for j in J))
+        m.addGenConstrLog(m._u[i], m._logu[i])
+
+    m.addConstr(gp.quicksum(A[0][j] * m._x[j] for j in J) <= sum(B[i][0] for i in N))
+
+    m.setObjective(gp.quicksum(m._logu.values()), gp.GRB.MAXIMIZE)
+
+    m.optimize()
+
+    m.optimize()
+    x_N = {j: m._x[j].X for j in J}
+    u_N = {i: m._u[i].X for i in N}
+    kappa = None
+
+    out = x_N, u_N, time.time() - startTime, cutCount, eps, S, kappa, -1
+    with open('{0}/results/solutions/{1}_{2}_{3}.pkl'.format(RELPATH, FILENAME, modelname, iterCount), 'wb') as file:
+        pickle.dump(out, file)
+
+    iterLimit = kwargs.get('iterLimit', 10)
+
+    while iterCount <= iterLimit:
+        iterCount += 1
+        with open('{0}/results/solutions/{1}_{2}_{3}.pkl'.format(RELPATH, FILENAME, modelname, iterCount),
+                  'wb') as file:
+            pickle.dump(out, file)
+
+

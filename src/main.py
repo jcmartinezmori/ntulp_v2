@@ -10,18 +10,24 @@ def main(n, objective, timeLimit, epsLimit, **kwargs):
 
     with open('{0}/results/instances/instance_{1}_{2}.pkl'.format(RELPATH, FILENAME, n), 'rb') as file:
         instance = pickle.load(file)
-        solver.main(
-            instance, modelname,
-            objective=objective,
-            timeLimit=timeLimit,
-            epsLimit=epsLimit,
-            iterLimit=iterLimit
-        )
+        if objective == 'nash':
+            solver.nash(
+                instance, modelname,
+                iterLimit=iterLimit
+            )
+        else:
+            solver.main(
+                instance, modelname,
+                objective=objective,
+                timeLimit=timeLimit,
+                epsLimit=epsLimit,
+                iterLimit=iterLimit
+            )
 
 
 if __name__ == '__main__':
     n = 'community-area'
-    objective = 'maximin'
+    objective = 'utilitarian'
     timeLimit = 300
     epsLimit = 1
     iterLimit = 100

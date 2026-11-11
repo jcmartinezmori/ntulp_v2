@@ -148,5 +148,6 @@ if __name__ == '__main__':
     except FileNotFoundError:
         pass
     """
-    ffmpeg -framerate 15 -i results/frames/png_crop/frame_%04d.png -crf 18 -preset slow -pix_fmt yuv420p results/frames/frames.mp4
+    ffmpeg -framerate 15 -i results/frames/maximin/png_crop/maximin_frame_%04d.png -frames:v 100 -crf 18 -preset slow -pix_fmt yuv420p results/frames/maximin/frames.mp4
+    ffmpeg -framerate 15 -i results/frames/utilitarian/png_crop/utilitarian_frame_%04d.png -frames:v 100 -crf 18 -preset slow -pix_fmt yuv420p results/frames/utilitarian/frames.mp4
     """

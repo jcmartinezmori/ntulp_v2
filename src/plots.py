@@ -61,7 +61,8 @@ def plot_convergence(ns, objectives, timeLimit, epsLimit, iterLimit, showlegend=
     )
     subplot_titles = {
         'utilitarian': r'$\Large \textrm{Utilitarian Service Goal}$',
-        'maximin': r'$\Large \textrm{Maximin Service Goal}$'
+        'maximin': r'$\Large \textrm{Maximin Service Goal}$',
+        'nash': r'$\Large \textrm{Nash Service Goal}$'
     }
 
     for col, title in plots:
@@ -194,23 +195,33 @@ def plot_utilities(title, keys):
 if __name__ == '__main__':
 
     ns = ['community-area']
-    objectives = ['maximin', 'utilitarian']
+    objectives = ['maximin', 'utilitarian', 'nash']
+    # objectives = ['nash']
     timeLimit = 300
     epsLimit = 1
     iterLimit = 100
 
     plot_convergence(ns, objectives, timeLimit, epsLimit, iterLimit)
 
-    title = r'$\Large \textrm{Maximin Service Goal}$'
-    keys = [
-        ('community-area', 'maximin', timeLimit, epsLimit, iterLimit, r'$\textrm{With cooperation}$'),
-        ('community-area', 'maximin', timeLimit, epsLimit, -1, r'$\textrm{Without cooperation}$')
-    ]
-    plot_utilities(title, keys)
+    # title = r'$\Large \textrm{Maximin Service Goal}$'
+    # keys = [
+    #     ('community-area', 'maximin', timeLimit, epsLimit, iterLimit, r'$\textrm{With cooperation}$'),
+    #     ('community-area', 'maximin', timeLimit, epsLimit, -1, r'$\textrm{Without cooperation}$'),
+    #     ('community-area', 'nash', timeLimit, epsLimit, -1, r'$\textrm{Nash Social Welfare}$'),
+    # ]
+    # plot_utilities(title, keys)
+    # #
+    # title = r'$\Large \textrm{Utilitarian Service Goal}$'
+    # keys = [
+    #     ('community-area', 'utilitarian', timeLimit, epsLimit, iterLimit, r'$\textrm{With cooperation}$'),
+    #     ('community-area', 'utilitarian', timeLimit, epsLimit, -1, r'$\textrm{Without cooperation}$'),
+    #     ('community-area', 'nash', timeLimit, epsLimit, -1, r'$\textrm{Nash Social Welfare}$'),
+    # ]
+    # plot_utilities(title, keys)
 
-    title = r'$\Large \textrm{Utilitarian Service Goal}$'
-    keys = [
-        ('community-area', 'utilitarian', timeLimit, epsLimit, iterLimit, r'$\textrm{With cooperation}$'),
-        ('community-area', 'utilitarian', timeLimit, epsLimit, -1, r'$\textrm{Without cooperation}$')
-    ]
-    plot_utilities(title, keys)
+    # title = r'$\Large \textrm{Nash Bargaining Service Goal}$'
+    # keys = [
+    #     ('community-area', 'nash', timeLimit, epsLimit, -1, r'$\textrm{Nash}$'),
+    # ]
+    # plot_utilities(title, keys)
+
