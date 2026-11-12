@@ -16,16 +16,14 @@ from playwright.async_api import async_playwright
 from shapely import wkt
 
 
-def plot_frames(n, objective, timeLimit, epsLimit, iterCountStart, iterCountEnd):
-
-    modelname = '{0}-{1}-{2}-{3}'.format(n, objective, timeLimit, epsLimit)
+def plot_frames(modelname, iterCountStart, iterCountEnd):
 
     if os.path.exists(html_dir):
         shutil.rmtree(html_dir)
     os.makedirs(html_dir)
 
     g, _, lines_df, trips_df = helper.preprocess_load()
-    samples_df = pd.read_csv('{0}/results/instances/samples_df_{1}_{2}.csv'.format(RELPATH, FILENAME, n))
+    samples_df = pd.read_csv('{0}/results/instances/samples_df_{1}_{2}.csv'.format(RELPATH, FILENAME, 'community-area'))
 
     areas_df = gpd.read_file('./data/community_areas.csv')
     areas_df["geometry"] = areas_df["the_geom"].apply(wkt.loads)
@@ -39,7 +37,7 @@ def plot_frames(n, objective, timeLimit, epsLimit, iterCountStart, iterCountEnd)
             x_N, _, _, _, _, S, _, _ = pickle.load(file)
 
         # lines_df['width'] = [LINESCALING * np.log2(1 + x_N[j] / lines_df.iloc[j].length) for j in range(len(x_N))]
-        lines_df['width'] = [1 / (2 * LINESCALING) * np.log2(1 + x_N[j]) for j in range(len(x_N))]
+        lines_df['width'] = [1 / (2 * LINESCALING) * np.log2(1 + x_N[j]) if j in x_N.keys() else 0 for j in range(lines_df.shape[0])]
         # lines_df['width'] = [x_N[j] / LINESCALING for j in range(len(x_N))]
 
         for _, data in g.nodes(data=True):
@@ -79,7 +77,7 @@ def plot_frames(n, objective, timeLimit, epsLimit, iterCountStart, iterCountEnd)
         folium_map.save('{0}/pos2_{1}_{2}_{3}.html'.format(html_dir, FILENAME, modelname, iterCount))
 
 
-async def convert_html_to_images(html_dir, pdf_dir, pdf_crop_dir, png_crop_dir, cropbox, png_zoom, objective=None):
+async def convert_html_to_images(html_dir, pdf_dir, pdf_crop_dir, png_crop_dir, cropbox, png_zoom, modelname=None):
 
     if os.path.exists(pdf_dir):
         shutil.rmtree(pdf_dir)
@@ -101,10 +99,10 @@ async def convert_html_to_images(html_dir, pdf_dir, pdf_crop_dir, png_crop_dir, 
         for i, html_file in enumerate(html_files):
 
             file_url = html_file.resolve().as_uri()
-            if objective is None:
+            if modelname is None:
                 pdf_out = Path(pdf_dir)/f'frame_{i:04d}.pdf'
             else:
-                pdf_out = Path(pdf_dir) / f'{objective}_frame_{i:04d}.pdf'
+                pdf_out = Path(pdf_dir) / f'{modelname}_frame_{i:04d}.pdf'
 
             await page.goto(file_url)
             await page.set_viewport_size({'width': 1920, 'height': 1080})
@@ -130,21 +128,28 @@ async def convert_html_to_images(html_dir, pdf_dir, pdf_crop_dir, png_crop_dir, 
 
 
 if __name__ == '__main__':
-    n = 'community-area'
-    objective = 'utilitarian'
+
+    # n = 'community-area'
+    # n = 'convergence-0'
+    n = 'population'
+    objective = 'maximin'
     timeLimit = 300
     epsLimit = 1
     iterCountStart = -1
-    iterCountEnd = 100
-    html_dir = './results/frames/{0}/html'.format(objective)
-    pdf_dir = './results/frames/{0}/pdf'.format(objective)
-    pdf_crop_dir = './results/frames/{0}/pdf_crop'.format(objective)
-    png_crop_dir = './results/frames/{0}/png_crop'.format(objective)
+    iterCountEnd = 10
+
+    modelname = '{0}-{1}-{2}-{3}'.format(n, objective, timeLimit, epsLimit)
+
+    html_dir = './results/frames/{0}/html'.format(modelname)
+    pdf_dir = './results/frames/{0}/pdf'.format(modelname)
+    pdf_crop_dir = './results/frames/{0}/pdf_crop'.format(modelname)
+    png_crop_dir = './results/frames/{0}/png_crop'.format(modelname)
     cropbox = (460, 180, 810, 710)
     png_zoom = 4
+
     try:
-        plot_frames(n, objective, timeLimit, epsLimit, iterCountStart, iterCountEnd)
-        asyncio.run(convert_html_to_images(html_dir, pdf_dir, pdf_crop_dir, png_crop_dir, cropbox, png_zoom, objective=objective))
+        # plot_frames(modelname, iterCountStart, iterCountEnd)
+        asyncio.run(convert_html_to_images(html_dir, pdf_dir, pdf_crop_dir, png_crop_dir, cropbox, png_zoom, modelname=modelname))
     except FileNotFoundError:
         pass
     """

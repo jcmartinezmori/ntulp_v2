@@ -194,13 +194,19 @@ def plot_utilities(title, keys):
 
 if __name__ == '__main__':
 
-    ns = ['community-area']
-    objectives = ['maximin', 'utilitarian', 'nash']
-    # objectives = ['nash']
+    # ns = ['community-area']
+    # # objectives = ['maximin', 'utilitarian', 'nash']
+    # objectives = ['utilitarian']
+    # timeLimit = 300
+    # epsLimit = 1
+    # iterLimit = 100
+
+    # ns = ['convergence-1', 'convergence-2', 'convergence-3', 'convergence-4']
+    ns = ['convergence-0', 'convergence-1', 'convergence-2']
+    objectives = ['utilitarian', 'maximin']
     timeLimit = 300
     epsLimit = 1
-    iterLimit = 100
-
+    iterLimit = 20
     plot_convergence(ns, objectives, timeLimit, epsLimit, iterLimit)
 
     # title = r'$\Large \textrm{Maximin Service Goal}$'

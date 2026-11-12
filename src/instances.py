@@ -15,7 +15,7 @@ def community_area():
 
     N = [i for i in range(trips_df['Pickup Community Area'].nunique())]
     J = [j for j in range(lines_df.shape[0])]
-    K = [k for k in range(1)]
+    K = [0]
     A = [lines_df['length'].to_list()]
     B = [[0] for _ in N]
     V = [np.array([0 for _ in J], dtype=float) for _ in N]
@@ -23,7 +23,6 @@ def community_area():
     V_riders = []
 
     for idx, trip in trips_df.iterrows():
-        print(idx)
         if int(trip.o_node) in AIRPORT_NODES or int(trip.d_node) in AIRPORT_NODES:
             continue
         if int(trip.d_node) in nx.single_source_dijkstra_path_length(
@@ -73,12 +72,103 @@ def community_area():
     V_riders = pd.DataFrame(V_riders)
     V_riders.to_csv('{0}/results/instances/V_riders.csv'.format(RELPATH, FILENAME), index=False)
 
-    samples_df.to_csv('{0}/results/instances/samples_df_{1}_{2}.csv'.format(RELPATH, FILENAME, 'community_area'), index=False)
+    samples_df.to_csv(
+        '{0}/results/instances/samples_df_{1}_{2}.csv'.format(RELPATH, FILENAME, 'community-area'), index=False
+    )
+
+    A = {k: {j: A[k][j] for j in J} for k in K}
+    B = {i: {k: B[i][k] for k in K} for i in N}
+    V = {i: {j: V[i][j] for j in J} for i in N}
+    instance = N, J, K, A, B, V
+    with open(
+            '{0}/results/instances/instance_{1}_{2}.pkl'.format(RELPATH, FILENAME, 'community-area'), 'wb'
+    ) as file:
+        pickle.dump(instance, file)
+
+
+def convergence(convergence_areas, convergence_name):
+
+    with open(
+            '{0}/results/instances/instance_{1}_{2}.pkl'.format(RELPATH, FILENAME, 'community-area'), 'rb'
+    ) as file:
+        instance = pickle.load(file)
+
+    N, J, K, A, B, V = instance
+
+    new_N = [i - 1 for i in sorted(convergence_areas)]
+    new_J = [j for j in J if sum(1 for i in new_N if V[i][j]) > 1]
+    new_K = K
+    new_A = {k: {j: A[k][j] for j in new_J} for k in K}
+    new_B = {i: {k: B[i][k] for k in new_K} for i in new_N}
+    new_V = {i: {j: V[i][j] for j in new_J} for i in new_N}
+
+    N, J, K, A, B, V = new_N, new_J, new_K, new_A, new_B, new_V
 
     instance = N, J, K, A, B, V
-    with open('{0}/results/instances/instance_{1}_{2}.pkl'.format(RELPATH, FILENAME, 'community_area'), 'wb') as file:
+
+    with open(
+            '{0}/results/instances/instance_{1}_convergence-{2}.pkl'.format(
+                RELPATH, FILENAME, convergence_name
+            ), 'wb'
+    ) as file:
+        pickle.dump(instance, file)
+
+
+def population():
+
+    areas_df = pd.read_csv('./data/community_areas.csv')
+    pop_df = pd.read_csv('./data/population.csv')
+
+    df = pd.merge(areas_df, pop_df, left_on='COMMUNITY', right_on='Community Area')
+    df['Total Population'] = df['Total Population'].str.replace(',', '').astype(int)
+    df['Under $25,000'] = df['Under $25,000'].str.replace(',', '').astype(int)
+
+    with open(
+            '{0}/results/instances/instance_{1}_{2}.pkl'.format(RELPATH, FILENAME, 'community-area'), 'rb'
+    ) as file:
+        instance = pickle.load(file)
+
+    N, J, K, A, B, V = instance
+
+    new_N = N
+    new_J = J
+    new_K = K
+    new_A = A
+    new_B = {i: {k: df.iloc[i]['Under $25,000'] for k in new_K} for i in new_N}
+    new_V = V
+
+    N, J, K, A, B, V = new_N, new_J, new_K, new_A, new_B, new_V
+
+    instance = N, J, K, A, B, V
+
+    with open(
+            '{0}/results/instances/instance_{1}_population.pkl'.format(
+                RELPATH, FILENAME
+            ), 'wb'
+    ) as file:
         pickle.dump(instance, file)
 
 
 if __name__ == '__main__':
-    community_area()
+
+    # community_area()
+
+    # convergence_areas, convergence_name = [8, 32, 33], '0'
+    # convergence(convergence_areas, convergence_name)
+    #
+    # convergence_areas, convergence_name = [7, 8, 32, 33, 35], '1'
+    # convergence(convergence_areas, convergence_name)
+    #
+    # convergence_areas, convergence_name = [6, 7, 8, 32, 33, 35, 36, 39], '2'
+    # convergence(convergence_areas, convergence_name)
+
+    # convergence_areas, convergence_name = [7, 8, 32, 33, 35, 22, 24, 28, 31, 59, 60, 34], '3'
+    # convergence(convergence_areas, convergence_name)
+    # #
+    # convergence_areas, convergence_name = [8, 32, 33, 24, 28, 31], '4'
+    # convergence(convergence_areas, convergence_name)
+    #
+    # convergence_areas, convergence_name = [8, 32, 33, 35, 24, 28, 31, 34, 60], '4'
+    # convergence(convergence_areas, convergence_name)
+
+    population()
